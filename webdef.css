@@ -1,0 +1,4 @@
+.tempoDisplay, #periodDisplay {
+	display: inline-block;
+	width: 3ch;
+}
