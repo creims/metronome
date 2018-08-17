@@ -3,13 +3,20 @@ import {
 	numToNote
 } from './conversions.js';
 
+import visualize from './visualize.js';
+
 const toggleBtn = document.getElementById('toggle');
 const addLineBtn = document.getElementById('addLine');
 const lineDiv = document.getElementById('lineDiv');
 const periodInput = document.getElementById('periodInput');
 const periodDisplay = document.getElementById('periodDisplay');
 
+const bgCanvas = document.getElementById('bg');
+const fgCanvas = document.getElementById('fg');
+
+// Internal constants
 const scheduleAheadTime = 0.1;
+const colors = ['red', 'blue', 'green', 'yellow', 'orange', 'violet'];
 
 // Defaults
 const defTempo = 1.0;
@@ -22,6 +29,7 @@ let audioContext;
 let timer;
 let lines = [];
 let counter = 0;
+let colorIndex = 0;
 
 function toggle() {
     if(isPlaying) {
@@ -110,12 +118,14 @@ function addLine() {
 		frequency: numToHz(noteSelect.value),
 		nextNoteTime: 1, // Overwritten when the timer starts
 		noteLength: defNoteLength,
+		color: colors[colorIndex],
 	};
 	
 	// Register event handlers
 	tempoInput.oninput = () => {
 		newLine.tempo = tempoInput.value;
 		tempoDisplay.innerText = newLine.tempo;
+		visualize.updateBG(lines);
 	};
 	
 	noteSelect.onchange = () => {
@@ -125,10 +135,13 @@ function addLine() {
 	removeBtn.onclick = () => {
 		newLineDiv.remove();
 		removeLine(idNumber);
+		visualize.updateBG(lines);
 	};
 	
 	lines.push(newLine);
+	visualize.updateBG(lines);
 	counter++;
+	colorIndex = (colorIndex + 1) % colors.length;
 }
 
 function removeLine(id) {
@@ -140,6 +153,8 @@ function removeLine(id) {
 }
 
 function init() {
+	visualize.init(bgCanvas, fgCanvas);
+	
 	toggleBtn.onclick = toggle;
 	addLineBtn.onclick = addLine;
 	
@@ -164,5 +179,5 @@ function init() {
 	};
 }
 
-init();
+window.onload = init();
 

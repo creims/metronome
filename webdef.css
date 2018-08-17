@@ -2,3 +2,8 @@
 	display: inline-block;
 	width: 3ch;
 }
+
+canvas {
+	position: absolute;
+	background-color: transparent;
+}
