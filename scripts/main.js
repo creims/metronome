@@ -1,3 +1,8 @@
+import {
+	numToHz, 
+	numToNote
+} from './conversions.js';
+
 const toggleBtn = document.getElementById('toggle');
 const addLineBtn = document.getElementById('addLine');
 const lineDiv = document.getElementById('lineDiv');
@@ -72,20 +77,16 @@ function addLine() {
 	tempoDisplay.className = 'tempoDisplay';
 	tempoDisplay.innerText = tempoInput.value;
 	
-	// Create the input to choose the frequency
-	const frequencyInput = document.createElement('input');
-	frequencyInput.type = 'number';
-	frequencyInput.min = '20.0';
-	frequencyInput.max = '20000.0';
-	frequencyInput.step = '1';
-	frequencyInput.value = defFrequency;
-	frequencyInput.id = 'frequency' + counter;
-	
-	// Displays the line's frequency
-	const frequencyDisplay = document.createElement('span');
-	frequencyDisplay.id = 'frequencyDisplay' + counter;
-	frequencyDisplay.className = 'frequencyDisplay';
-	frequencyDisplay.innerText = frequencyInput.value;
+	// Select the note to play
+	const noteSelect = document.createElement('select');
+	noteSelect.id = 'noteSelect';
+	for(let i = 0; i < 108; i++) {
+		let opt = document.createElement('option');
+		opt.value = i;
+		opt.innerHTML = numToNote(i);
+		noteSelect.appendChild(opt);
+	}
+	noteSelect.selectedIndex = 57; // A4 selected by default
 	
 	// Button to remove the line
 	const removeBtn = document.createElement('button');
@@ -96,8 +97,7 @@ function addLine() {
 	newLineDiv.appendChild(tempoDisplay);
 	newLineDiv.appendChild(document.createTextNode(' BPI'));
 	newLineDiv.appendChild(tempoInput);
-	newLineDiv.appendChild(document.createTextNode('Frequency (Hz): '));
-	newLineDiv.appendChild(frequencyInput);
+	newLineDiv.appendChild(noteSelect);
 	newLineDiv.appendChild(removeBtn);
 	
 	// Add the line controls to the div
@@ -107,18 +107,19 @@ function addLine() {
 	const newLine = {
 		id: idNumber,
 		tempo: tempoInput.value,
-		frequency: frequencyInput.value,
+		frequency: numToHz(noteSelect.value),
 		nextNoteTime: 1, // Overwritten when the timer starts
 		noteLength: defNoteLength,
 	};
 	
-	tempoInput.oninput = e => {
+	// Register event handlers
+	tempoInput.oninput = () => {
 		newLine.tempo = tempoInput.value;
 		tempoDisplay.innerText = newLine.tempo;
 	};
 	
-	frequencyInput.oninput = e => {
-		newLine.frequency = frequencyInput.value;
+	noteSelect.onchange = () => {
+		newLine.frequency = numToHz(noteSelect.value);
 	};
 	
 	removeBtn.onclick = () => {
