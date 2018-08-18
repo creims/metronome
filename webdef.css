@@ -66,6 +66,10 @@ select {
 	grid-column: 3 / 4;
 }
 
+.visuals {
+	height: 500px;
+}
+
 canvas {
 	position: absolute;
 	background-color: transparent;
