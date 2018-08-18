@@ -4,10 +4,7 @@ body {
 	font-weight: 700;
 	white-space: nowrap;
 	
-background: #CECECE;
-background: -moz-radial-gradient(center, #CECECE 0%, #323232 100%);
-background: -webkit-radial-gradient(center, #CECECE 0%, #323232 100%);
-background: radial-gradient(ellipse at center, #CECECE 0%, #323232 100%);
+	background-image: radial-gradient(circle, #CECECE 0%, #323232 100%);
 }
 
 select {
@@ -69,16 +66,13 @@ select {
 	grid-column: 3 / 4;
 }
 
-.visuals {
-	display: grid;
-	grid-template: 500px / 1fr;
-	place-items: center;
-}
-
 canvas {
 	position: absolute;
 	background-color: transparent;
 	z-index: -1;
+	left: 0;
+	right: 0;
+	margin: auto;
 }
 
 /* Button styling
@@ -122,6 +116,7 @@ input[type=range] {
 	-webkit-appearance: none;
 	margin: 0;
 	width: 100%;
+	background-color: inherit;
 }
 
 input[type=range]:focus {
