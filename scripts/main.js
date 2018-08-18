@@ -1,34 +1,32 @@
 import {
-	numToHz, 
-	numToNote
+	numToHz
 } from './conversions.js';
 
 import visualize from './visualize.js';
+import elementBuilder from './elementbuilder.js';
 
+// Document elements
 const toggleBtn = document.getElementById('toggle');
-const addLineBtn = document.getElementById('addLine');
-const lineDiv = document.getElementById('lineDiv');
-const periodInput = document.getElementById('periodInput');
-const periodDisplay = document.getElementById('periodDisplay');
+const addLineBtn = document.getElementById('add-line');
+const lineDiv = document.getElementById('lines');
+const periodInput = document.getElementById('period-input');
+const periodDisplay = document.getElementById('period-display');
 
 const bgCanvas = document.getElementById('bg');
 const fgCanvas = document.getElementById('fg');
 
 // Internal constants
 const scheduleAheadTime = 0.1;
+const defaultNoteLength = 0.05;
 const colors = ['red', 'blue', 'green', 'yellow', 'orange', 'violet'];
 
-// Defaults
-const defTempo = 1.0;
-const defFrequency = 440;
-const defNoteLength = 0.05;
-
+// Globals
 let period;
 let isPlaying = false;
 let audioContext;
 let timer;
 let lines = [];
-let counter = 0;
+let idCounter = 0;
 let colorIndex = 0;
 
 function toggle() {
@@ -70,77 +68,41 @@ function scheduleNotes() {
 }
 
 function addLine() {
-	// This is the slider to choose the tempo
-	const tempoInput = document.createElement('input');
-	tempoInput.type = 'range';
-	tempoInput.min = '1.0';
-	tempoInput.max = '100.0';
-	tempoInput.step = '1';
-	tempoInput.value = defTempo;
-	tempoInput.id = 'tempo' + counter;
-	
-	// Displays the line's tempo
-	const tempoDisplay = document.createElement('span');
-	tempoDisplay.id = 'tempoDisplay' + counter;
-	tempoDisplay.className = 'tempoDisplay';
-	tempoDisplay.innerText = tempoInput.value;
-	
-	// Select the note to play
-	const noteSelect = document.createElement('select');
-	noteSelect.id = 'noteSelect';
-	for(let i = 0; i < 108; i++) {
-		let opt = document.createElement('option');
-		opt.value = i;
-		opt.innerHTML = numToNote(i);
-		noteSelect.appendChild(opt);
-	}
-	noteSelect.selectedIndex = 57; // A4 selected by default
-	
-	// Button to remove the line
-	const removeBtn = document.createElement('button');
-	removeBtn.innerText = 'Remove';
-
-	const newLineDiv = document.createElement('div');
-	newLineDiv.appendChild(document.createTextNode('Tempo: '));
-	newLineDiv.appendChild(tempoDisplay);
-	newLineDiv.appendChild(document.createTextNode(' BPI'));
-	newLineDiv.appendChild(tempoInput);
-	newLineDiv.appendChild(noteSelect);
-	newLineDiv.appendChild(removeBtn);
+	const newLMI = elementBuilder.createLineMenuItem();
 	
 	// Add the line controls to the div
-	lineDiv.appendChild(newLineDiv);
+	lineDiv.appendChild(newLMI.div);
 	
-	let idNumber = counter;
+	let idNumber = idCounter;
 	const newLine = {
 		id: idNumber,
-		tempo: tempoInput.value,
-		frequency: numToHz(noteSelect.value),
+		tempo: newLMI.tempoInput.value,
+		frequency: numToHz(newLMI.noteSelect.value),
 		nextNoteTime: 1, // Overwritten when the timer starts
-		noteLength: defNoteLength,
+		noteLength: defaultNoteLength,
 		color: colors[colorIndex],
 	};
 	
 	// Register event handlers
-	tempoInput.oninput = () => {
-		newLine.tempo = tempoInput.value;
-		tempoDisplay.innerText = newLine.tempo;
+	newLMI.tempoInput.oninput = () => {
+		newLine.tempo = newLMI.tempoInput.value;
+		newLMI.tempoSpan.innerText = newLine.tempo;
 		visualize.updateBG(lines);
 	};
 	
-	noteSelect.onchange = () => {
-		newLine.frequency = numToHz(noteSelect.value);
+	newLMI.noteSelect.onchange = () => {
+		newLine.frequency = numToHz(newLMI.noteSelect.value);
 	};
 	
-	removeBtn.onclick = () => {
-		newLineDiv.remove();
+	newLMI.removeBtn.onclick = () => {
+		newLMI.div.remove();
 		removeLine(idNumber);
 		visualize.updateBG(lines);
 	};
 	
+	idCounter++;
 	lines.push(newLine);
 	visualize.updateBG(lines);
-	counter++;
 	colorIndex = (colorIndex + 1) % colors.length;
 }
 
