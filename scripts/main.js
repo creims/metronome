@@ -1,9 +1,12 @@
 import {
-	numToHz
+	numToHz,
+	types,
+	audioUrls,
 } from './conversions.js';
 
 import visualize from './visualize.js';
-import elementBuilder from './elementbuilder.js';
+import MenuItem from './menuitem.js';
+import AudioLoader from './audioloader.js';
 
 // Document elements
 const toggleBtn = document.getElementById('toggle');
@@ -20,6 +23,13 @@ const scheduleAheadTime = 0.1;
 const defaultNoteLength = 0.05;
 const colors = ['red', 'blue', 'green', 'yellow', 'orange', 'violet'];
 
+// TEST STUFF
+// TEST STUFF
+const testUrl = 'https://cors-anywhere.herokuapp.com/https://actions.google.com/sounds/v1/weapons/bullet_hit_car.ogg';
+
+// END TEST STUFF
+// END TEST STUFF
+
 // Globals
 let period;
 let isPlaying = false;
@@ -28,6 +38,8 @@ let timer;
 let lines = [];
 let idCounter = 0;
 let colorIndex = 0;
+let periodTime; // The time the last period started
+let audioBuffers;
 
 function toggle() {
     if(isPlaying) {
@@ -37,9 +49,9 @@ function toggle() {
         toggleBtn.textContent = 'Stop';
 		
 		// Set timing for the first notes
-		let t = audioContext.currentTime + 0.1; // 100ms lead time
+		periodTime = audioContext.currentTime + 0.1; // 100ms lead time
 		for(let l of lines) {
-			l.nextNoteTime = t;
+			l.nextNoteTime = periodTime;
 		}
 		
 		timer.postMessage('start');
@@ -49,12 +61,19 @@ function toggle() {
 }
 
 function scheduleNote(line) {
-	let osc = audioContext.createOscillator();
-	osc.frequency.value = line.frequency;
-	osc.connect(audioContext.destination);
+	let node;
+	if(line.typeIndex == 0) {
+		node = audioContext.createOscillator();
+		node.frequency.value = line.frequency;
+	} else {
+		node = audioContext.createBufferSource();
+		node.buffer = audioBuffers[line.noteIndex];
+	}
 	
-	osc.start(line.nextNoteTime);
-	osc.stop(line.nextNoteTime + line.noteLength);
+	node.connect(audioContext.destination);
+	
+	node.start(line.nextNoteTime);
+	node.stop(line.nextNoteTime + line.noteLength);
 	
 	line.nextNoteTime += period / line.tempo;
 }
@@ -67,38 +86,50 @@ function scheduleNotes() {
 	}
 }
 
-function addLine() {
-	const newLMI = elementBuilder.createLineMenuItem();
-	
-	// Add the line controls to the div
-	lineDiv.appendChild(newLMI.div);
+function addLine(type) {
+	const newMI = new MenuItem(lineDiv);
 	
 	let idNumber = idCounter;
 	const newLine = {
 		id: idNumber,
-		tempo: newLMI.tempoInput.value,
-		frequency: numToHz(newLMI.noteSelect.value),
-		nextNoteTime: 1, // Overwritten when the timer starts
+		tempo: newMI.getTempo(),
+		frequency: 440.0, // Only used for oscillators
+		typeIndex: newMI.getTypeIndex(),
+		noteIndex: newMI.getNoteIndex(),
+		nextNoteTime: periodTime,
 		noteLength: defaultNoteLength,
 		color: colors[colorIndex],
 	};
 	
 	// Register event handlers
-	newLMI.tempoInput.oninput = () => {
-		newLine.tempo = newLMI.tempoInput.value;
-		newLMI.tempoSpan.innerText = newLine.tempo;
-		visualize.updateBG(lines);
-	};
+	newMI.setHandler('tempoChange', () => {
+			newLine.tempo = newMI.getTempo();
+			newMI.setTempoText(newLine.tempo);
+			visualize.updateBG(lines);
+		});
+		
+	newMI.setHandler('typeChange', () => {
+		newMI.updateType();
+		let newTypeIndex = newMI.getTypeIndex();
+		if(newTypeIndex == 0) {
+			newLine.noteLength = defaultNoteLength;
+		} else {
+			newLine.noteLength = 1.0;
+		}
+		newLine.typeIndex = newTypeIndex;
+		newLine.noteIndex = newMI.getNoteIndex();
+	});
 	
-	newLMI.noteSelect.onchange = () => {
-		newLine.frequency = numToHz(newLMI.noteSelect.value);
-	};
+	newMI.setHandler('noteChange', () => {
+		newLine.noteIndex = newMI.getNoteIndex();
+		newLine.frequency = numToHz(newLine.noteIndex);
+	});
 	
-	newLMI.removeBtn.onclick = () => {
-		newLMI.div.remove();
+	newMI.setHandler('remove', () => {
+		newMI.remove();
 		removeLine(idNumber);
 		visualize.updateBG(lines);
-	};
+	});
 	
 	idCounter++;
 	lines.push(newLine);
@@ -114,7 +145,22 @@ function removeLine(id) {
 	}
 }
 
+function testSound(buffer) {
+	var source = audioContext.createBufferSource();
+	source.buffer = buffer;
+	source.connect(audioContext.destination);
+	source.start(0);  
+}
+
 function init() {
+	window.AudioContext = window.AudioContext || window.webkitAudioContext;
+	audioContext = new AudioContext();
+	
+	let loader = new AudioLoader(audioContext, audioUrls, buffers => {
+		audioBuffers = buffers;
+	});
+	loader.loadAll();
+	
 	visualize.init(bgCanvas, fgCanvas);
 	
 	toggleBtn.onclick = toggle;
@@ -126,9 +172,6 @@ function init() {
 	};
 	
 	periodInput.oninput();
-	
-	window.AudioContext = window.AudioContext || window.webkitAudioContext;
-	audioContext = new AudioContext();
 	
 	timer = new Worker('scripts/worker.js');
 
