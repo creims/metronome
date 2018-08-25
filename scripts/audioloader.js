@@ -1,27 +1,19 @@
-function AudioLoader(context, urls, callback) {
+function AudioLoader(context) {
 	this.context = context;
-	this.toLoad = urls;
-	this.doneLoading = callback;
-	this.audioBuffers = [];
-	this.loadCount = 0;
 };
 
-AudioLoader.prototype.loadAudio = function(url) {
-	fetch(url)
+AudioLoader.prototype.load = function(urls, callback) {
+	const buffers = [];
+	for(let i = 0; i < urls.length; i++) {
+		fetch(urls[i])
 		.then(response => response.arrayBuffer())
 		.then(buf => this.context.decodeAudioData(buf))
 		.then(buf => {
-			this.audioBuffers.push(buf);
-			this.loadCount++;
-			if(this.loadCount >= this.toLoad.length) {
-				this.doneLoading(this.audioBuffers);
+			buffers.push(buf);
+			if(i == urls.length - 1) {
+				callback(buffers);
 			}
 		});
-}
-
-AudioLoader.prototype.loadAll = function() {
-	for(let url of this.toLoad) {
-		this.loadAudio(url);
 	}
 }
 

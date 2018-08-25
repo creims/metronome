@@ -1,5 +1,8 @@
+import AudioLoader from './audioloader.js';
+
 const sharp = '&#9839;' // &#9839; is the sharp symbol
 const flat = '&#9837;' // &#9837; is a flat symbol
+const soundMgr = {};
 
 // Precalculated from C0 at 16.35 Hz
 // Formula: note = C0 * (2^(1/12))^n
@@ -114,10 +117,6 @@ const frequencies = [
 	7901.36064632
 ];
 
-function numToHz(n) {
-	return frequencies[n];
-}
-
 // 12 notes per octave, 8 octaves
 function numToNote(n) {
 	let octave = Math.trunc(n / 12);
@@ -161,51 +160,57 @@ function numToNote(n) {
 	}
 }
 
-let beepNotes = [];
+let beepNoteNames = [];
 for(let i = 0; i < frequencies.length; i++) {
-	beepNotes.push(numToNote(i));
+	beepNoteNames.push(numToNote(i));
 }
 
-let audioFiles = [
-	{ type: 'Percussion', name: 'Hi-Hat', url: './sounds/hihat.normal.m4a', def: true },
-	{ type: 'Percussion', name: 'Bell', url: './sounds/hihat.bell.m4a' },
-	{ type: 'Percussion', name: 'Footclose', url: './sounds/hihat.footclose.m4a' },
-	{ type: 'Percussion', name: 'Footsplash', url: './sounds/hihat.footsplash.m4a' },
-	{ type: 'Percussion', name: 'Shoulder', url: './sounds/hihat.shoulder.m4a' },
+const percussion = [
+	{ name: 'Hi-Hat', url: './sounds/hihat.normal.m4a' },
+	{ name: 'Bell', url: './sounds/hihat.bell.m4a' },
+	{ name: 'Footclose', url: './sounds/hihat.footclose.m4a' },
+	{ name: 'Footsplash', url: './sounds/hihat.footsplash.m4a' },
+	{ name: 'Shoulder', url: './sounds/hihat.shoulder.m4a' },
 ];
 
-const beepInfo = {
-	notes: beepNotes,
-	defaultIndex: 57
+const sounds = {
+	'Beeps': {
+		defaultIndex: 57,
+		noteNames: beepNoteNames,
+	},
+	'Percussion': {
+		defaultIndex: 0,
+		noteNames: percussion.map(e => e.name),
+		urls: percussion.map(e => e.url)
+	},
 };
 
-let types = (new Map()).set('Beeps', beepInfo);
-types.set(0, beepInfo);
-let counter = 1;
-let typeNames = ['Beeps'];
+const soundTypes = Object.keys(sounds);
+soundMgr.getTypes = function() {
+	return soundTypes;
+}
 
-audioFiles.reduce(function(acc, curr, index) {
-	let val = acc.get(curr.type);
-	if(val == undefined) {
-		val = {
-			notes: [],
-			urls: [],
-		}
-		typeNames.push(curr.type);
-		acc.set(curr.type, val);
-		acc.set(counter, val);
-		counter++;
-	}
-	
-	if(curr.def === true) {
-		val.defaultIndex = index;
-	}
-	
-	val.notes.push(curr.name);
-	val.urls.push(curr.url);
-	return acc;
-}, types);
+soundMgr.getNotes = function(type) {
+	return sounds[type].noteNames;
+}
 
-let audioUrls = audioFiles.map(o => o.url);
+soundMgr.getSound = function(type, index) {
+	return sounds[type].buffers[index];
+}
 
-export { types, typeNames, audioUrls, numToHz };
+soundMgr.frequencyOf = function(index) {
+	return frequencies[index];
+}
+
+soundMgr.defaultIndex = function(type) {
+	return sounds[type].defaultIndex;
+}
+
+soundMgr.init = function(audioContext) {
+	const audioLoader = new AudioLoader(audioContext);
+	audioLoader.load(sounds['Percussion'].urls, bufs => {
+		sounds['Percussion'].buffers = bufs;
+	});
+}
+
+export default soundMgr;
