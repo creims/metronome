@@ -1,12 +1,6 @@
-import {
-	numToHz,
-	types,
-	audioUrls,
-} from './conversions.js';
-
+import soundMgr from './sounds.js';
 import visualize from './visualize.js';
 import MenuItem from './menuitem.js';
-import AudioLoader from './audioloader.js';
 
 // Document elements
 const toggleBtn = document.getElementById('toggle');
@@ -22,13 +16,7 @@ const fgCanvas = document.getElementById('fg');
 const scheduleAheadTime = 0.1;
 const defaultNoteLength = 0.05;
 const colors = ['red', 'blue', 'green', 'yellow', 'orange', 'violet'];
-
-// TEST STUFF
-// TEST STUFF
-const testUrl = 'https://cors-anywhere.herokuapp.com/https://actions.google.com/sounds/v1/weapons/bullet_hit_car.ogg';
-
-// END TEST STUFF
-// END TEST STUFF
+const beepType = 'Beeps'; // For readability
 
 // Globals
 let period;
@@ -39,7 +27,6 @@ let lines = [];
 let idCounter = 0;
 let colorIndex = 0;
 let periodTime; // The time the last period started
-let audioBuffers;
 
 function toggle() {
     if(isPlaying) {
@@ -62,12 +49,12 @@ function toggle() {
 
 function scheduleNote(line) {
 	let node;
-	if(line.typeIndex == 0) {
+	if(line.type == beepType) {
 		node = audioContext.createOscillator();
 		node.frequency.value = line.frequency;
 	} else {
 		node = audioContext.createBufferSource();
-		node.buffer = audioBuffers[line.noteIndex];
+		node.buffer = line.soundBuffer;
 	}
 	
 	node.connect(audioContext.destination);
@@ -93,12 +80,12 @@ function addLine(type) {
 	const newLine = {
 		id: idNumber,
 		tempo: newMI.getTempo(),
-		frequency: 440.0, // Only used for oscillators
-		typeIndex: newMI.getTypeIndex(),
-		noteIndex: newMI.getNoteIndex(),
+		type: newMI.getType(),
 		nextNoteTime: periodTime,
 		noteLength: defaultNoteLength,
 		color: colors[colorIndex],
+		frequency: soundMgr.frequencyOf(newMI.getNoteIndex()),
+		soundBuffer: null,
 	};
 	
 	// Register event handlers
@@ -110,19 +97,27 @@ function addLine(type) {
 		
 	newMI.setHandler('typeChange', () => {
 		newMI.updateType();
-		let newTypeIndex = newMI.getTypeIndex();
-		if(newTypeIndex == 0) {
+		
+		const newType = newMI.getType();
+		const noteIndex = newMI.getNoteIndex();
+		if(newType == beepType) {
 			newLine.noteLength = defaultNoteLength;
+			newLine.frequency = soundMgr.frequencyOf(noteIndex);
 		} else {
 			newLine.noteLength = 1.0;
+			newLine.soundBuffer = soundMgr.getSound(newType, noteIndex);
 		}
-		newLine.typeIndex = newTypeIndex;
-		newLine.noteIndex = newMI.getNoteIndex();
+		
+		newLine.type = newType;
 	});
 	
 	newMI.setHandler('noteChange', () => {
-		newLine.noteIndex = newMI.getNoteIndex();
-		newLine.frequency = numToHz(newLine.noteIndex);
+		const newIndex = newMI.getNoteIndex();
+		if(newLine.type == beepType) {
+			newLine.frequency = soundMgr.frequencyOf(newIndex);
+		} else {
+			newLine.soundBuffer = soundMgr.getSound(newLine.type, newIndex);
+		}
 	});
 	
 	newMI.setHandler('remove', () => {
@@ -156,10 +151,7 @@ function init() {
 	window.AudioContext = window.AudioContext || window.webkitAudioContext;
 	audioContext = new AudioContext();
 	
-	let loader = new AudioLoader(audioContext, audioUrls, buffers => {
-		audioBuffers = buffers;
-	});
-	loader.loadAll();
+	soundMgr.init(audioContext);
 	
 	visualize.init(bgCanvas, fgCanvas);
 	

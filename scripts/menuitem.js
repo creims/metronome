@@ -1,7 +1,4 @@
-import { 
-	types,
-	typeNames
-} from './conversions.js';
+import soundMgr from './sounds.js';
 
 // Helper functions
 function createSelect(options, defaultIndex) {
@@ -43,7 +40,7 @@ function MenuItem(parentElement) {
 	tempoDisplay.appendChild(document.createTextNode(' BPI'));
 	
 	// Select for the type of line (frequency, hi hat, piano, etc)
-	const typeSelect = createSelect(typeNames, 0);
+	const typeSelect = createSelect(soundMgr.getTypes(), 0);
 	
 	// Use an outer div so we can style the select
 	const typeSelectDiv = document.createElement('div');
@@ -51,8 +48,7 @@ function MenuItem(parentElement) {
 	typeSelectDiv.appendChild(typeSelect);
 	
 	// Select for the note to play
-	let type = types.get('Beeps');
-	const noteSelect = createSelect(type.notes, type.defaultIndex);
+	const noteSelect = createSelect(soundMgr.getNotes('Beeps'), soundMgr.defaultIndex('Beeps'));
 	
 	// Use an outer div so we can style the select
 	const noteSelectDiv = document.createElement('div');
@@ -112,8 +108,8 @@ MenuItem.prototype.getTempo = function() {
 	return this.tempoInput.value;
 }
 
-MenuItem.prototype.getTypeIndex = function() {
-	return this.typeSelect.selectedIndex;
+MenuItem.prototype.getType = function() {
+	return this.typeSelect.value;
 }
 
 MenuItem.prototype.getNoteIndex = function() {
@@ -121,9 +117,9 @@ MenuItem.prototype.getNoteIndex = function() {
 }
 
 MenuItem.prototype.updateType = function() {
-	let newType = types.get(this.typeSelect.selectedIndex);
-	setSelectOptions(this.noteSelect, newType.notes);
-	this.noteSelect.selectedIndex = newType.defaultIndex;
+	const soundType = this.typeSelect.value;
+	setSelectOptions(this.noteSelect, soundMgr.getNotes(soundType));
+	this.noteSelect.selectedIndex = soundMgr.defaultIndex(soundType);
 }
 
 MenuItem.prototype.setTempoText = function(newText) {
