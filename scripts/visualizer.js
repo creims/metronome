@@ -1,6 +1,7 @@
 const circleColor = '#808080';
 const offset = 10;
 const twopi = Math.PI * 2;
+const logthree = Math.log10(3);
 const center = 250;
 const radius = center - offset;
 
@@ -70,22 +71,24 @@ function makeGradient(ctx, ...colors) {
 }
 
 // Export
-function Visualizer(canvas) {
-	this.canvas = canvas;
+function Visualizer(bgCanvas, fgCanvas) {
+	this.bgCanvas = bgCanvas;
+	this.fgCanvas = fgCanvas;
 
-	this.ctx = this.canvas.getContext('2d');
+	this.bgctx = bgCanvas.getContext('2d');
+	this.fgctx = fgCanvas.getContext('2d');
 	
-	this.update();
+	this.updateBG();
 }
 
 // To be called when the background changes
-Visualizer.prototype.update = function(lines) {
+Visualizer.prototype.updateBG = function(lines) {
 	// Draw circle
-	this.ctx.fillStyle = makeGradient(this.ctx, circleColor, '#004477', '#001444');
-	this.ctx.beginPath();
-	this.ctx.arc(center, center, radius, 0, twopi);
-	this.ctx.closePath();
-	this.ctx.fill();
+	this.bgctx.fillStyle = makeGradient(this.bgctx, circleColor, '#004477', '#001444');
+	this.bgctx.beginPath();
+	this.bgctx.arc(center, center, radius, 0, twopi);
+	this.bgctx.closePath();
+	this.bgctx.fill();
 	
 	// Draw shapes if there are any
 	if(lines == null) {
@@ -101,11 +104,33 @@ Visualizer.prototype.update = function(lines) {
 		}
 		
 		if(l.bpi == 1) {
-			drawArrow(this.ctx, color);
+			drawArrow(this.bgctx, color);
 		} else {
-			drawStar(this.ctx, l.bpi, color);
+			drawStar(this.bgctx, l.bpi, color);
 		}
 	}
+}
+
+Visualizer.prototype.pulse = function(pct) {
+	const adjustedPct = Math.sqrt(Math.log10(1 + pct) / logthree) * 1.26;
+	let gradient;
+	if(adjustedPct > 0.95) {
+		gradient = makeGradient(this.fgctx, 'rgba(200,80,55,50)', 'rgba(180,0,110,80)');
+	} else {
+		gradient = makeGradient(this.fgctx, 'rgba(22,200,110,115)', 'rgba(80,100,180,160)');
+	}
+	// Draw circle
+	this.fgctx.clearRect(0, 0, this.fgCanvas.width, this.fgCanvas.height);
+	this.fgctx.fillStyle = gradient;
+	this.fgctx.beginPath();
+	this.fgctx.arc(center, center, radius * adjustedPct, 0, twopi);
+	this.fgctx.closePath();
+	this.fgctx.fill();
+}
+
+Visualizer.prototype.clear = function() {
+	// Draw circle
+	this.fgctx.clearRect(0, 0, this.fgCanvas.width, this.fgCanvas.height);
 }
 
 export default Visualizer;
