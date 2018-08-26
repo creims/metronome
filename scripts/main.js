@@ -13,7 +13,9 @@ const bpmInput = document.getElementById('bpm-input');
 const bpmDisplay = document.getElementById('bpm-display');
 
 const canvasIntervalic = document.getElementById('intervalic');
+const canvasIntervalicAnim = document.getElementById('intervalic-anim');
 const canvasBPM = document.getElementById('bpm');
+const canvasBPMAnim = document.getElementById('bpm-anim');
 
 // Internal constants
 const scheduleAheadTime = 0.1;
@@ -22,6 +24,12 @@ const defaultBPM = 0.5; // 120bpm
 const leadTime = 0.15; // Time before playing notes after starting metronome
 const colors = ['red', 'blue', 'green', 'yellow', 'orange', 'violet'];
 const beepType = 'Beeps'; // For readability
+
+// Animation timing
+const leadupFrac = 0.20;
+const cooldownFrac = 1 - leadupFrac;
+const animMult = 1 / leadupFrac;
+const logthree = Math.log10(3);
 
 // Globals
 let period;
@@ -127,7 +135,7 @@ function addLine(type) {
 			newLine.bpi = newMI.getBPI();
 			newLine.delay = period / newLine.bpi;
 			newMI.setBPIText(newLine.bpi);
-			intervalicVisualizer.update(lines);
+			intervalicVisualizer.updateBG(lines);
 			resync(newLine);
 		});
 		
@@ -169,19 +177,19 @@ function addLine(type) {
 		} else{
 			newMI.unmute();
 		}
-		intervalicVisualizer.update(lines);
+		intervalicVisualizer.updateBG(lines);
 		resync(newLine);
 	});
 	
 	newMI.setHandler('remove', () => {
 		newMI.remove();
 		removeLine(idNumber);
-		intervalicVisualizer.update(lines);
+		intervalicVisualizer.updateBG(lines);
 	});
 	
 	idCounter++;
 	lines.push(newLine);
-	intervalicVisualizer.update(lines);
+	intervalicVisualizer.updateBG(lines);
 	colorIndex = (colorIndex + 1) % colors.length;
 }
 
@@ -195,6 +203,26 @@ function removeLine(id) {
 
 function isPlaying() {
 	return bpmPlaying || intervalPlaying;
+}
+
+function animate() {
+	let nextImpact = (bpmLine.nextNoteTime - bpmLine.noteOffset) - audioContext.currentTime;
+	if(nextImpact > 0) { // Only play if the next note is scheduled
+		let pctToNext = nextImpact / bpmLine.delay;
+		
+		// Pulse up approaching the sound
+		if(pctToNext < leadupFrac  && bpmPlaying) {
+			bpmVisualizer.pulse(1 - (pctToNext * animMult));
+		} // Pulse down after the sound
+		else if(pctToNext > cooldownFrac) {
+			let pct = Math.min(1, (pctToNext - cooldownFrac) * animMult);
+			bpmVisualizer.pulse(pct);
+		} else {
+			bpmVisualizer.clear();
+		}
+	}
+
+	requestAnimationFrame(animate);
 }
 
 function init() {
@@ -217,8 +245,8 @@ function init() {
 		bpmLine.noteLength = bpmLine.soundBuffer.duration;
 	});
 	
-	intervalicVisualizer = new Visualizer(canvasIntervalic);
-	bpmVisualizer = new Visualizer(canvasBPM);
+	intervalicVisualizer = new Visualizer(canvasIntervalic, canvasIntervalicAnim);
+	bpmVisualizer = new Visualizer(canvasBPM, canvasBPMAnim);
 	
 	intervalToggleBtn.onclick = function() {
 		if(intervalPlaying) {
@@ -282,6 +310,8 @@ function init() {
 			console.log('Unknown message received from timer');
 		}
 	};
+	
+	requestAnimationFrame(animate);
 }
 
 window.onload = init();

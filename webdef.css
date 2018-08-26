@@ -100,11 +100,29 @@ select {
 	place-items: center;
 	grid-gap: 0px 5px;
 	grid-template-columns: repeat(2, 1fr);
+	grid-template-rows: 500px;
 }
 
 canvas {
 	background-color: transparent;
-	z-index: -1;
+}
+
+.intervalic {
+	grid-column: 1 / 2;
+	grid-row: 1 / 2;
+}
+
+.bpm {
+	grid-column: 2 / 3;
+	grid-row: 1 / 2;
+}
+
+.fg {
+	z-index: -2;
+}
+
+.bg {
+	z-index: -3;
 }
 
 /* Button styling
