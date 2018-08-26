@@ -3,18 +3,14 @@ function AudioLoader(context) {
 };
 
 AudioLoader.prototype.load = function(urls, callback) {
-	const buffers = [];
-	for(let i = 0; i < urls.length; i++) {
-		fetch(urls[i])
-		.then(response => response.arrayBuffer())
-		.then(buf => this.context.decodeAudioData(buf))
-		.then(buf => {
-			buffers.push(buf);
-			if(i == urls.length - 1) {
-				callback(buffers);
-			}
+	Promise.all(
+		urls.map(url => 
+			fetch(url)
+				.then(response => response.arrayBuffer())
+				.then(buf => this.context.decodeAudioData(buf)))
+		).then(buffers => {
+			callback(buffers);
 		});
-	}
 }
 
 export default AudioLoader;

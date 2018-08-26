@@ -166,11 +166,11 @@ for(let i = 0; i < frequencies.length; i++) {
 }
 
 const percussion = [
-	{ name: 'Hi-Hat', url: './sounds/hihat.normal.m4a' },
-	{ name: 'Bell', url: './sounds/hihat.bell.m4a' },
-	{ name: 'Footclose', url: './sounds/hihat.footclose.m4a' },
-	{ name: 'Footsplash', url: './sounds/hihat.footsplash.m4a' },
-	{ name: 'Shoulder', url: './sounds/hihat.shoulder.m4a' },
+	{ name: 'Hi-Hat', url: './sounds/hihat.normal.m4a', offset: -0.05 },
+	{ name: 'Bell', url: './sounds/hihat.bell.m4a', offset: -0.05 },
+	{ name: 'Footclose', url: './sounds/hihat.footclose.m4a', offset: -0.08 },
+	{ name: 'Footsplash', url: './sounds/hihat.footsplash.m4a', offset: -0.2 },
+	{ name: 'Shoulder', url: './sounds/hihat.shoulder.m4a', offset: -0.05 },
 ];
 
 const sounds = {
@@ -181,7 +181,8 @@ const sounds = {
 	'Percussion': {
 		defaultIndex: 0,
 		noteNames: percussion.map(e => e.name),
-		urls: percussion.map(e => e.url)
+		urls: percussion.map(e => e.url),
+		offsets: percussion.map(e => e.offset)
 	},
 };
 
@@ -198,6 +199,10 @@ soundMgr.getSound = function(type, index) {
 	return sounds[type].buffers[index];
 }
 
+soundMgr.getOffset = function(type, index) {
+	return sounds[type].offsets[index];
+}
+
 soundMgr.frequencyOf = function(index) {
 	return frequencies[index];
 }
@@ -206,10 +211,11 @@ soundMgr.defaultIndex = function(type) {
 	return sounds[type].defaultIndex;
 }
 
-soundMgr.init = function(audioContext) {
+soundMgr.init = function(audioContext, callback) {
 	const audioLoader = new AudioLoader(audioContext);
 	audioLoader.load(sounds['Percussion'].urls, bufs => {
 		sounds['Percussion'].buffers = bufs;
+		callback();
 	});
 }
 

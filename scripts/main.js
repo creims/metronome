@@ -1,51 +1,40 @@
 import soundMgr from './sounds.js';
-import visualize from './visualize.js';
+import Visualizer from './visualizer.js';
 import MenuItem from './menuitem.js';
 
 // Document elements
-const toggleBtn = document.getElementById('toggle');
+const intervalToggleBtn = document.getElementById('toggle-intervalic');
+const bpmToggleBtn = document.getElementById('toggle-bpm');
 const addLineBtn = document.getElementById('add-line');
 const lineDiv = document.getElementById('lines');
 const periodInput = document.getElementById('period-input');
 const periodDisplay = document.getElementById('period-display');
+const bpmInput = document.getElementById('bpm-input');
+const bpmDisplay = document.getElementById('bpm-display');
 
-const bgCanvas = document.getElementById('bg');
-const fgCanvas = document.getElementById('fg');
+const canvasIntervalic = document.getElementById('intervalic');
+const canvasBPM = document.getElementById('bpm');
 
 // Internal constants
 const scheduleAheadTime = 0.1;
 const defaultNoteLength = 0.05;
+const defaultBPM = 0.5; // 120bpm
+const leadTime = 0.15; // Time before playing notes after starting metronome
 const colors = ['red', 'blue', 'green', 'yellow', 'orange', 'violet'];
 const beepType = 'Beeps'; // For readability
 
 // Globals
 let period;
-let isPlaying = false;
+let intervalPlaying = false;
+let bpmPlaying = false;
 let audioContext;
 let timer;
 let lines = [];
 let idCounter = 0;
 let colorIndex = 0;
-let periodTime; // The time the last period started
-
-function toggle() {
-    if(isPlaying) {
-        toggleBtn.textContent = 'Start';
-		timer.postMessage('stop');
-    } else {
-        toggleBtn.textContent = 'Stop';
-		
-		// Set timing for the first notes
-		periodTime = audioContext.currentTime + 0.1; // 100ms lead time
-		for(let l of lines) {
-			l.nextNoteTime = periodTime;
-		}
-		
-		timer.postMessage('start');
-    }
-    
-    isPlaying = !isPlaying;
-}
+let periodStart; // The time the last period started
+let intervalicVisualizer, bpmVisualizer;
+let bpmLine;
 
 function scheduleNote(line) {
 	let node;
@@ -62,13 +51,55 @@ function scheduleNote(line) {
 	node.start(line.nextNoteTime);
 	node.stop(line.nextNoteTime + line.noteLength);
 	
-	line.nextNoteTime += period / line.tempo;
+	line.nextNoteTime += line.delay;
 }
 
 function scheduleNotes() {
-	for(let l of lines) {
-		while(l.nextNoteTime < audioContext.currentTime + scheduleAheadTime) {
-			scheduleNote(l);
+	if(bpmPlaying) {
+		while(bpmLine.nextNoteTime < audioContext.currentTime + scheduleAheadTime) {
+			scheduleNote(bpmLine);
+		}
+	}
+	
+	if(intervalPlaying) {
+		for(let l of lines) {
+			if(l.muted) {
+				continue;
+			}
+			while(l.nextNoteTime < audioContext.currentTime + scheduleAheadTime) {
+				scheduleNote(l);
+			}
+		}
+	}
+}
+
+function resync(...lines) {
+	// If this is a fresh rhythm, set periodStart to be when the first beat falls
+	// but schedule the first note at currentTime + leadTime
+	if(!isPlaying()) {
+		// Find the minimum offset
+		let minNoteOffset = 0;
+		for(let l of lines) {
+			if(l.noteOffset < minNoteOffset) {
+				minNoteOffset = l.noteOffset;
+			}
+		}
+		periodStart = audioContext.currentTime + leadTime - minNoteOffset;
+		
+		// Schedule notes
+		for(let l of lines) {
+			l.nextNoteTime = periodStart + l.noteOffset;
+		}
+	} else { // If a rhythm is in progress, schedule notes when they'd next play
+		let missedNotes; // The number of notes missed since the line last played
+		for(let l of lines) {
+			missedNotes = (audioContext.currentTime + leadTime - periodStart + l.noteOffset) / l.delay;
+			l.nextNoteTime = periodStart + l.noteOffset + Math.ceil(missedNotes) * l.delay;
+			
+			// Prevent the sound from playing in the past due to noteOffset
+			if(l.nextNoteTime < audioContext.currentTime) {
+				l.nextNoteTime += l.delay;
+			}
 		}
 	}
 }
@@ -79,20 +110,25 @@ function addLine(type) {
 	let idNumber = idCounter;
 	const newLine = {
 		id: idNumber,
-		tempo: newMI.getTempo(),
+		bpi: 1.0,
+		delay: 1.0,
+		noteOffset: 0,
 		type: newMI.getType(),
-		nextNoteTime: periodTime,
+		nextNoteTime: periodStart,
 		noteLength: defaultNoteLength,
 		color: colors[colorIndex],
 		frequency: soundMgr.frequencyOf(newMI.getNoteIndex()),
 		soundBuffer: null,
+		muted: false,
 	};
 	
 	// Register event handlers
-	newMI.setHandler('tempoChange', () => {
-			newLine.tempo = newMI.getTempo();
-			newMI.setTempoText(newLine.tempo);
-			visualize.updateBG(lines);
+	newMI.setHandler('bpiChange', () => {
+			newLine.bpi = newMI.getBPI();
+			newLine.delay = period / newLine.bpi;
+			newMI.setBPIText(newLine.bpi);
+			intervalicVisualizer.update(lines);
+			resync(newLine);
 		});
 		
 	newMI.setHandler('typeChange', () => {
@@ -102,13 +138,16 @@ function addLine(type) {
 		const noteIndex = newMI.getNoteIndex();
 		if(newType == beepType) {
 			newLine.noteLength = defaultNoteLength;
+			newLine.noteOffset = 0;
 			newLine.frequency = soundMgr.frequencyOf(noteIndex);
 		} else {
-			newLine.noteLength = 1.0;
 			newLine.soundBuffer = soundMgr.getSound(newType, noteIndex);
+			newLine.noteLength = newLine.soundBuffer.duration;
+			newLine.noteOffset = soundMgr.getOffset(newType, noteIndex);
 		}
 		
 		newLine.type = newType;
+		resync(newLine);
 	});
 	
 	newMI.setHandler('noteChange', () => {
@@ -117,18 +156,32 @@ function addLine(type) {
 			newLine.frequency = soundMgr.frequencyOf(newIndex);
 		} else {
 			newLine.soundBuffer = soundMgr.getSound(newLine.type, newIndex);
+			newLine.noteLength = newLine.soundBuffer.duration;
+			newLine.noteOffset = soundMgr.getOffset(newLine.type, newIndex);
 		}
+		resync(newLine);
+	});
+	
+	newMI.setHandler('mute', () => {
+		newLine.muted = !newLine.muted;
+		if(newLine.muted) {
+			newMI.mute();
+		} else{
+			newMI.unmute();
+		}
+		intervalicVisualizer.update(lines);
+		resync(newLine);
 	});
 	
 	newMI.setHandler('remove', () => {
 		newMI.remove();
 		removeLine(idNumber);
-		visualize.updateBG(lines);
+		intervalicVisualizer.update(lines);
 	});
 	
 	idCounter++;
 	lines.push(newLine);
-	visualize.updateBG(lines);
+	intervalicVisualizer.update(lines);
 	colorIndex = (colorIndex + 1) % colors.length;
 }
 
@@ -140,29 +193,84 @@ function removeLine(id) {
 	}
 }
 
-function testSound(buffer) {
-	var source = audioContext.createBufferSource();
-	source.buffer = buffer;
-	source.connect(audioContext.destination);
-	source.start(0);  
+function isPlaying() {
+	return bpmPlaying || intervalPlaying;
 }
 
 function init() {
 	window.AudioContext = window.AudioContext || window.webkitAudioContext;
 	audioContext = new AudioContext();
 	
-	soundMgr.init(audioContext);
+	bpmLine = {
+		delay: defaultBPM,
+		type: 'Percussion',
+		nextNoteTime: periodStart,
+		noteLength: 1.0,
+		noteOffset: 0,
+		soundBuffer: null,
+		muted: false,
+	};
 	
-	visualize.init(bgCanvas, fgCanvas);
+	soundMgr.init(audioContext, () => {
+		bpmLine.soundBuffer = soundMgr.getSound('Percussion', 0);
+		bpmLine.noteOffset = soundMgr.getOffset('Percussion', 0);
+		bpmLine.noteLength = bpmLine.soundBuffer.duration;
+	});
 	
-	toggleBtn.onclick = toggle;
+	intervalicVisualizer = new Visualizer(canvasIntervalic);
+	bpmVisualizer = new Visualizer(canvasBPM);
+	
+	intervalToggleBtn.onclick = function() {
+		if(intervalPlaying) {
+			intervalToggleBtn.textContent = 'Start';
+			if(!bpmPlaying) {
+				timer.postMessage('stop');
+			}
+		} else {
+			intervalToggleBtn.textContent = 'Stop';
+			
+			// Set timing for the first notes
+			resync(...lines);
+			
+			timer.postMessage('start');
+		}
+		
+		intervalPlaying = !intervalPlaying;
+	};
+	
+	bpmToggleBtn.onclick = function() {
+		if(bpmPlaying) {
+			bpmToggleBtn.textContent = 'Start';
+			if(!intervalPlaying) {
+				timer.postMessage('stop');
+			}
+		} else {
+			bpmToggleBtn.textContent = 'Stop';
+			
+			resync(bpmLine);
+			
+			timer.postMessage('start');
+		}
+		
+		bpmPlaying = !bpmPlaying;
+	}
+	
 	addLineBtn.onclick = addLine;
 	
 	periodInput.oninput = e => {
 		period = periodInput.value;
-		periodDisplay.innerText = periodInput.value;
+		periodDisplay.innerText = period;
+		for(let l of lines) {
+			l.delay = period / l.bpi;
+		}
 	};
 	
+	bpmInput.oninput = e => {
+		bpmLine.delay = 60.0 / bpmInput.value;
+		bpmDisplay.innerText = bpmInput.value;
+	};
+	
+	bpmInput.oninput();
 	periodInput.oninput();
 	
 	timer = new Worker('scripts/worker.js');
