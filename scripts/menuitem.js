@@ -22,22 +22,21 @@ function setSelectOptions(selectElement, options) {
 
 // Constructor
 function MenuItem(parentElement) {
-	const tempoInput = document.createElement('input'); // Slider to choose the tempo
-	tempoInput.className = 'tempo-range';
-	tempoInput.type = 'range';
-	tempoInput.min = '1.0';
-	tempoInput.max = '100.0';
-	tempoInput.step = '1';
-	tempoInput.value = '1';	
+	const bpiInput = document.createElement('input'); // Slider to choose the bpi
+	bpiInput.className = 'bpi-range';
+	bpiInput.type = 'range';
+	bpiInput.min = '1.0';
+	bpiInput.max = '100.0';
+	bpiInput.step = '1';
+	bpiInput.value = '1';	
 	
-	// Display the line's tempo
-	const tempoSpan = document.createElement('span');
-	tempoSpan.innerText = tempoInput.value;
+	// Display the line's bpi
+	const bpiSpan = document.createElement('span');
+	bpiSpan.innerText = bpiInput.value;
 	
-	const tempoDisplay = document.createElement('div');
-	tempoDisplay.appendChild(document.createTextNode('Tempo: '));
-	tempoDisplay.appendChild(tempoSpan);
-	tempoDisplay.appendChild(document.createTextNode(' BPI'));
+	const bpiDisplay = document.createElement('div');
+	bpiDisplay.appendChild(document.createTextNode('BPI: '));
+	bpiDisplay.appendChild(bpiSpan);
 	
 	// Select for the type of line (frequency, hi hat, piano, etc)
 	const typeSelect = createSelect(soundMgr.getTypes(), 0);
@@ -55,6 +54,11 @@ function MenuItem(parentElement) {
 	noteSelectDiv.className = 'select-div';
 	noteSelectDiv.appendChild(noteSelect);
 	
+	// Button to mute the line
+	const muteBtn = document.createElement('button');
+	muteBtn.className = 'mute-btn';
+	muteBtn.innerText = 'Mute';
+	
 	// Button to remove the line
 	const removeBtn = document.createElement('button');
 	removeBtn.className = 'remove-btn';
@@ -62,15 +66,17 @@ function MenuItem(parentElement) {
 	
 	const div = document.createElement('div');
 	div.className = 'line-menu-item';
-	div.appendChild(tempoDisplay);
-	div.appendChild(tempoInput);
+	div.appendChild(bpiDisplay);
+	div.appendChild(bpiInput);
 	div.appendChild(typeSelectDiv);
 	div.appendChild(noteSelectDiv);
+	div.appendChild(muteBtn);
 	div.appendChild(removeBtn);
 
-	this.tempoInput = tempoInput;
-	this.tempoSpan = tempoSpan;
+	this.bpiInput = bpiInput;
+	this.bpiSpan = bpiSpan;
 	this.removeBtn = removeBtn;
+	this.muteBtn = muteBtn;
 	this.typeSelect = typeSelect;
 	this.noteSelect = noteSelect;
 	this.div = div;
@@ -82,14 +88,17 @@ function MenuItem(parentElement) {
 // Methods
 MenuItem.prototype.setHandler = function(type, handler) {
 	switch(type) {
-		case 'tempoChange': 
-			this.tempoInput.oninput = handler;
+		case 'bpiChange': 
+			this.bpiInput.oninput = handler;
 			break;
 		case 'typeChange': 
 			this.typeSelect.onchange = handler;
 			break;
 		case 'noteChange': 
 			this.noteSelect.onchange = handler;
+			break;
+		case 'mute':
+			this.muteBtn.onclick = handler;
 			break;
 		case 'remove': 
 			this.removeBtn.onclick = handler;
@@ -100,12 +109,20 @@ MenuItem.prototype.setHandler = function(type, handler) {
 	};
 }
 
+MenuItem.prototype.mute = function() {
+	this.muteBtn.innerText = 'Unmute';
+}
+
+MenuItem.prototype.unmute = function() {
+	this.muteBtn.innerText = 'Mute';
+}
+
 MenuItem.prototype.remove = function() {
 	this.div.remove();
 }
 
-MenuItem.prototype.getTempo = function() {
-	return this.tempoInput.value;
+MenuItem.prototype.getBPI = function() {
+	return this.bpiInput.value;
 }
 
 MenuItem.prototype.getType = function() {
@@ -122,8 +139,8 @@ MenuItem.prototype.updateType = function() {
 	this.noteSelect.selectedIndex = soundMgr.defaultIndex(soundType);
 }
 
-MenuItem.prototype.setTempoText = function(newText) {
-	this.tempoSpan.innerText = newText;
+MenuItem.prototype.setBPIText = function(newText) {
+	this.bpiSpan.innerText = newText;
 }
 
 export default MenuItem;

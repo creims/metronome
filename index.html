@@ -7,21 +7,32 @@
 </head>
 <body>
 	<div class="header">
-		<div class="global-controls">
-			<button class="toggle" id="toggle">Start</button>
-			<button class="add-line" id="add-line">Add Line</button>
-			
-			<div class="period-text">Period Length:
-				<span id="period-display"></span>
+		<div class="metronome-controls">
+			<div class="intervalic-controls">
+				<button class="toggle-intervalic" id="toggle-intervalic">Start</button>
+				<button class="add-line" id="add-line">Add Line</button>
+				
+				<div class="period-text">Period Length:
+					<span id="period-display"></span>
+				</div>
+				
+				<input class="period-input" id="period-input" type="range" min="1.0" max="120.0" step="1" value="1">
 			</div>
-			
-			<input class="period-input" id="period-input" type="range" min="1.0" max="120.0" step="1" value="1">
+			<div class="bpm-controls">
+				<div class="bpm-text">BPM:
+					<span id="bpm-display"></span>
+				</div>
+				
+				<input class="bpm-input" id="bpm-input" type="range" min="1.0" max="360.0" step="1" value="60">
+				
+				<button class="toggle-bpm" id="toggle-bpm">Start</button>
+			</div>
 		</div>
 	</div>
 		
 	<div class="visuals" id="visuals">
-		<canvas id="bg" width="500" height="500"></canvas>
-		<canvas id="fg" width="500" height="500"></canvas>
+		<canvas id="intervalic" width="500" height="500"></canvas>
+		<canvas id="bpm" width="500" height="500"></canvas>
 	</div>
 
 	<div class="lines" id="lines"></div>

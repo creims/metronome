@@ -1,11 +1,8 @@
 const circleColor = '#808080';
 const offset = 10;
 const twopi = Math.PI * 2;
-
-const visualize = {}; // Export object
-let bg, fg; // background and foreground canvases
-let bgctx, fgctx; // background and foreground contexts
-let center, radius;
+const center = 250;
+const radius = center - offset;
 
 // Helper functions
 // Draws an n-pointed star inside the circle
@@ -72,25 +69,23 @@ function makeGradient(ctx, ...colors) {
 	return gradient;
 }
 
-// Exposed functions
-visualize.init = function(back, fore) {
-	bg = back;
-	fg = fore;
-	bgctx = bg.getContext('2d');
-	fgctx = fg.getContext('2d');
-	center = bg.width / 2;
-	radius = center - offset;
-	visualize.updateBG();
+// Export
+function Visualizer(canvas) {
+	this.canvas = canvas;
+
+	this.ctx = this.canvas.getContext('2d');
+	
+	this.update();
 }
 
 // To be called when the background changes
-visualize.updateBG = function(lines) {
+Visualizer.prototype.update = function(lines) {
 	// Draw circle
-	bgctx.fillStyle = makeGradient(bgctx, circleColor, '#004477', '#001444');
-	bgctx.beginPath();
-	bgctx.arc(center, center, radius, 0, twopi);
-	bgctx.closePath();
-	bgctx.fill();
+	this.ctx.fillStyle = makeGradient(this.ctx, circleColor, '#004477', '#001444');
+	this.ctx.beginPath();
+	this.ctx.arc(center, center, radius, 0, twopi);
+	this.ctx.closePath();
+	this.ctx.fill();
 	
 	// Draw shapes if there are any
 	if(lines == null) {
@@ -98,12 +93,19 @@ visualize.updateBG = function(lines) {
 	}
 	
 	for(let l of lines) {
-		if(l.tempo == 1) {
-			drawArrow(bgctx, l.color);
+		let color;
+		if(l.muted) {
+			color = 'grey';
 		} else {
-			drawStar(bgctx, l.tempo, l.color);
+			color = l.color;
+		}
+		
+		if(l.bpi == 1) {
+			drawArrow(this.ctx, color);
+		} else {
+			drawStar(this.ctx, l.bpi, color);
 		}
 	}
 }
 
-export default visualize;
+export default Visualizer;
