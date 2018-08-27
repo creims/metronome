@@ -1,6 +1,7 @@
 import soundMgr from './sounds.js';
 import Visualizer from './visualizer.js';
 import MenuItem from './menuitem.js';
+import Line from './line.js';
 
 // Document elements
 const intervalToggleBtn = document.getElementById('toggle-intervalic');
@@ -19,34 +20,30 @@ const canvasBPMAnim = document.getElementById('bpm-anim');
 
 // Internal constants
 const scheduleAheadTime = 0.1;
-const defaultNoteLength = 0.05;
-const defaultBPM = 0.5; // 120bpm
 const leadTime = 0.15; // Time before playing notes after starting metronome
 const colors = ['red', 'blue', 'green', 'yellow', 'orange', 'violet'];
-const beepType = 'Beeps'; // For readability
 
 // Animation timing
 const leadupFrac = 0.20;
 const cooldownFrac = 1 - leadupFrac;
 const animMult = 1 / leadupFrac;
-const logthree = Math.log10(3);
 
 // Globals
-let period;
+let period; // Length of our repetition
+let periodStart; // The time the last period started, used to synchronize
 let intervalPlaying = false;
 let bpmPlaying = false;
-let audioContext;
-let timer;
 let lines = [];
-let idCounter = 0;
-let colorIndex = 0;
-let periodStart; // The time the last period started
 let intervalicVisualizer, bpmVisualizer;
 let bpmLine;
+let audioContext;
+let timer;
+let colorIndex = 0;
 
+// Schedule a single note
 function scheduleNote(line) {
 	let node;
-	if(line.type == beepType) {
+	if(line.type == 'Beeps') {
 		node = audioContext.createOscillator();
 		node.frequency.value = line.frequency;
 	} else {
@@ -62,6 +59,7 @@ function scheduleNote(line) {
 	line.nextNoteTime += line.delay;
 }
 
+// Schedule all notes for both BPM and intervalic metronomes
 function scheduleNotes() {
 	if(bpmPlaying) {
 		while(bpmLine.nextNoteTime < audioContext.currentTime + scheduleAheadTime) {
@@ -81,6 +79,7 @@ function scheduleNotes() {
 	}
 }
 
+// Ensure that notes play at the proper time
 function resync(...lines) {
 	// If this is a fresh rhythm, set periodStart to be when the first beat falls
 	// but schedule the first note at currentTime + leadTime
@@ -112,87 +111,64 @@ function resync(...lines) {
 	}
 }
 
+// Add a new rhythm to our polyrhythm
 function addLine(type) {
 	const newMI = new MenuItem(lineDiv);
-	
-	let idNumber = idCounter;
-	const newLine = {
-		id: idNumber,
-		bpi: 1.0,
-		delay: 1.0,
-		noteOffset: 0,
-		type: newMI.getType(),
-		nextNoteTime: periodStart,
-		noteLength: defaultNoteLength,
+	const newBPI = newMI.getBPI();
+	const l = new Line({
+		bpi: newBPI,
+		delay: period / newBPI,
 		color: colors[colorIndex],
-		frequency: soundMgr.frequencyOf(newMI.getNoteIndex()),
-		soundBuffer: null,
-		muted: false,
-	};
+		nextNoteTime: periodStart,
+	});
+	colorIndex = (colorIndex + 1) % colors.length;
 	
 	// Register event handlers
 	newMI.setHandler('bpiChange', () => {
-			newLine.bpi = newMI.getBPI();
-			newLine.delay = period / newLine.bpi;
-			newMI.setBPIText(newLine.bpi);
+			l.bpi = newMI.getBPI();
+			l.delay = period / l.bpi;
+			
+			newMI.setBPIText(l.bpi);
+			
 			intervalicVisualizer.updateBG(lines);
-			resync(newLine);
+			resync(l);
 		});
 		
 	newMI.setHandler('typeChange', () => {
 		newMI.updateType();
-		
-		const newType = newMI.getType();
-		const noteIndex = newMI.getNoteIndex();
-		if(newType == beepType) {
-			newLine.noteLength = defaultNoteLength;
-			newLine.noteOffset = 0;
-			newLine.frequency = soundMgr.frequencyOf(noteIndex);
-		} else {
-			newLine.soundBuffer = soundMgr.getSound(newType, noteIndex);
-			newLine.noteLength = newLine.soundBuffer.duration;
-			newLine.noteOffset = soundMgr.getOffset(newType, noteIndex);
-		}
-		
-		newLine.type = newType;
-		resync(newLine);
+		l.setSound(newMI.getType(), newMI.getNoteIndex());
+
+		resync(l);
 	});
 	
 	newMI.setHandler('noteChange', () => {
-		const newIndex = newMI.getNoteIndex();
-		if(newLine.type == beepType) {
-			newLine.frequency = soundMgr.frequencyOf(newIndex);
-		} else {
-			newLine.soundBuffer = soundMgr.getSound(newLine.type, newIndex);
-			newLine.noteLength = newLine.soundBuffer.duration;
-			newLine.noteOffset = soundMgr.getOffset(newLine.type, newIndex);
-		}
-		resync(newLine);
+		l.setSound(l.type, newMI.getNoteIndex());
+		
+		resync(l);
 	});
 	
 	newMI.setHandler('mute', () => {
-		newLine.muted = !newLine.muted;
-		if(newLine.muted) {
+		l.muted = !l.muted;
+		if(l.muted) {
 			newMI.mute();
 		} else{
 			newMI.unmute();
 		}
 		intervalicVisualizer.updateBG(lines);
-		resync(newLine);
+		resync(l);
 	});
 	
 	newMI.setHandler('remove', () => {
 		newMI.remove();
-		removeLine(idNumber);
+		removeLine(l.id);
 		intervalicVisualizer.updateBG(lines);
 	});
 	
-	idCounter++;
-	lines.push(newLine);
+	lines.push(l);
 	intervalicVisualizer.updateBG(lines);
-	colorIndex = (colorIndex + 1) % colors.length;
 }
 
+// Remove a rhythm from our polyrhythm
 function removeLine(id) {
 	for(let i = 0; i < lines.length; i++) {
 		if(lines[i].id == id) {
@@ -201,25 +177,33 @@ function removeLine(id) {
 	}
 }
 
+// Is either metronome playing?
 function isPlaying() {
 	return bpmPlaying || intervalPlaying;
 }
 
+// Main animation loop
 function animate() {
+	// Animate BPM metronome
 	let nextImpact = (bpmLine.nextNoteTime - bpmLine.noteOffset) - audioContext.currentTime;
-	if(nextImpact > 0) { // Only play if the next note is scheduled
+	if(nextImpact > 0) { // Only play if the BPM line's next note is scheduled
 		let pctToNext = nextImpact / bpmLine.delay;
 		
 		// Pulse up approaching the sound
 		if(pctToNext < leadupFrac  && bpmPlaying) {
-			bpmVisualizer.pulse(1 - (pctToNext * animMult));
+			bpmVisualizer.animate(1 - (pctToNext * animMult));
 		} // Pulse down after the sound
 		else if(pctToNext > cooldownFrac) {
 			let pct = Math.min(1, (pctToNext - cooldownFrac) * animMult);
-			bpmVisualizer.pulse(pct);
+			bpmVisualizer.animate(pct);
 		} else {
-			bpmVisualizer.clear();
+			bpmVisualizer.clearFG();
 		}
+	}
+	
+	if(intervalPlaying) {
+		let pct = ((audioContext.currentTime - periodStart) % period) / period;
+		intervalicVisualizer.animate(pct);
 	}
 
 	requestAnimationFrame(animate);
@@ -229,24 +213,18 @@ function init() {
 	window.AudioContext = window.AudioContext || window.webkitAudioContext;
 	audioContext = new AudioContext();
 	
-	bpmLine = {
-		delay: defaultBPM,
-		type: 'Percussion',
-		nextNoteTime: periodStart,
-		noteLength: 1.0,
-		noteOffset: 0,
-		soundBuffer: null,
-		muted: false,
-	};
+	bpmLine = new Line();
 	
+	// Load our sounds and set the BPM metronome's sound when done
 	soundMgr.init(audioContext, () => {
-		bpmLine.soundBuffer = soundMgr.getSound('Percussion', 0);
-		bpmLine.noteOffset = soundMgr.getOffset('Percussion', 0);
-		bpmLine.noteLength = bpmLine.soundBuffer.duration;
+		bpmLine.setSound('Percussion', 0);
 	});
 	
 	intervalicVisualizer = new Visualizer(canvasIntervalic, canvasIntervalicAnim);
+	intervalicVisualizer.setAnimation('radar');
+	
 	bpmVisualizer = new Visualizer(canvasBPM, canvasBPMAnim);
+	bpmVisualizer.setAnimation('pulse');
 	
 	intervalToggleBtn.onclick = function() {
 		if(intervalPlaying) {
@@ -256,10 +234,7 @@ function init() {
 			}
 		} else {
 			intervalToggleBtn.textContent = 'Stop';
-			
-			// Set timing for the first notes
-			resync(...lines);
-			
+			resync(...lines); // Set timing for the first notes
 			timer.postMessage('start');
 		}
 		
@@ -274,9 +249,7 @@ function init() {
 			}
 		} else {
 			bpmToggleBtn.textContent = 'Stop';
-			
 			resync(bpmLine);
-			
 			timer.postMessage('start');
 		}
 		
@@ -291,11 +264,15 @@ function init() {
 		for(let l of lines) {
 			l.delay = period / l.bpi;
 		}
+		
+		resync(...lines);
 	};
 	
 	bpmInput.oninput = e => {
 		bpmLine.delay = 60.0 / bpmInput.value;
 		bpmDisplay.innerText = bpmInput.value;
+		
+		resync(bpmLine);
 	};
 	
 	bpmInput.oninput();
@@ -311,7 +288,7 @@ function init() {
 		}
 	};
 	
-	requestAnimationFrame(animate);
+	requestAnimationFrame(animate); // Start the animation loop
 }
 
 window.onload = init();
