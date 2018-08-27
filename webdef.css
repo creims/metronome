@@ -97,10 +97,9 @@ select {
 
 .visuals {
 	display: grid;
-	place-items: center;
+	justify-content: space-evenly;
 	grid-gap: 0px 5px;
-	grid-template-columns: repeat(2, 1fr);
-	grid-template-rows: 500px;
+	grid-template-columns: repeat(2, min-content);
 }
 
 canvas {
