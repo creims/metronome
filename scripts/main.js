@@ -24,8 +24,7 @@ const leadTime = 0.15; // Time before playing notes after starting metronome
 const colors = ['red', 'blue', 'green', 'yellow', 'orange', 'violet'];
 
 // Animation timing
-const leadupFrac = 0.20;
-const cooldownFrac = 1 - leadupFrac;
+const leadupFrac = 0.25;
 const animMult = 1 / leadupFrac;
 
 // Globals
@@ -33,6 +32,7 @@ let period; // Length of our repetition
 let periodStart; // The time the last period started, used to synchronize
 let intervalPlaying = false;
 let bpmPlaying = false;
+let bpmAnimTime;
 let lines = [];
 let intervalicVisualizer, bpmVisualizer;
 let bpmLine;
@@ -63,6 +63,7 @@ function scheduleNote(line) {
 function scheduleNotes() {
 	if(bpmPlaying) {
 		while(bpmLine.nextNoteTime < audioContext.currentTime + scheduleAheadTime) {
+			bpmAnimTime = bpmLine.nextNoteTime;
 			scheduleNote(bpmLine);
 		}
 	}
@@ -185,20 +186,18 @@ function isPlaying() {
 // Main animation loop
 function animate() {
 	// Animate BPM metronome
-	let nextImpact = (bpmLine.nextNoteTime - bpmLine.noteOffset) - audioContext.currentTime;
-	if(nextImpact > 0) { // Only play if the BPM line's next note is scheduled
-		let pctToNext = nextImpact / bpmLine.delay;
-		
+	let nextImpact = (bpmAnimTime - bpmLine.noteOffset) - audioContext.currentTime;
+	let pctToNext = Math.abs(nextImpact) / bpmLine.delay;
+	if(pctToNext < leadupFrac) { // Only play if the BPM line's next note is scheduled
 		// Pulse up approaching the sound
-		if(pctToNext < leadupFrac  && bpmPlaying) {
+		if(nextImpact > 0) {
 			bpmVisualizer.animate(1 - (pctToNext * animMult));
-		} // Pulse down after the sound
-		else if(pctToNext > cooldownFrac) {
-			let pct = Math.min(1, (pctToNext - cooldownFrac) * animMult);
-			bpmVisualizer.animate(pct);
-		} else {
-			bpmVisualizer.clearFG();
+		} // Pulse red during the sound
+		else {
+			bpmVisualizer.animate(1, true);
 		}
+	}  else {
+		bpmVisualizer.clearFG();
 	}
 	
 	if(intervalPlaying) {

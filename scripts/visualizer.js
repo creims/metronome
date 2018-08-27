@@ -52,9 +52,10 @@ function drawArrow(ctx, color) {
 }
 
 function pulse(ctx, pct, gradient) {
+	const adjustedPct = Math.min(1, Math.pow(pct, 1.5) + 0.05);
 	ctx.fillStyle = gradient;
 	ctx.beginPath();
-	ctx.arc(center, center, radius * pct, 0, twopi);
+	ctx.arc(center, center, radius * adjustedPct, 0, twopi);
 	ctx.closePath();
 	ctx.fill();
 }
@@ -142,16 +143,15 @@ Visualizer.prototype.setAnimation = function(type) {
 			radar(this.fgctx, pct, gradient);
 		};
 	} else if(type == 'pulse') {
-		const partialGradient = makeGradient(this.fgctx, 'rgba(22,200,110,115)', 'rgba(80,100,180,160)');
-		const fullGradient = makeGradient(this.fgctx, 'rgba(200,80,55,50)', 'rgba(180,0,110,80)');
+		const partialGradient = makeGradient(this.fgctx, 'rgba(0,0,0,0)', 'rgba(55,0,180,60)');
+		const fullGradient = makeGradient(this.fgctx, 'rgba(0,0,0,0)', 'rgba(180,0,110,60)');
 		
-		this.animate = pct => {
-			const adjustedPct = Math.pow(pct, 0.41);
+		this.animate = function(pct, downbeat = false) {
 			this.clearFG();
-			if(adjustedPct < 0.95) {
-				pulse(this.fgctx, adjustedPct, partialGradient);
+			if(downbeat) {
+				pulse(this.fgctx, 1, fullGradient);
 			} else {
-				pulse(this.fgctx, adjustedPct, fullGradient);
+				pulse(this.fgctx, pct, partialGradient);
 			}
 		};
 	}
