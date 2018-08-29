@@ -28,7 +28,7 @@ select {
 	display: grid;
 	place-items: center;
 	grid-gap: 5px;
-	grid-template-columns: 5em 1fr;
+	grid-template-columns: 5em repeat(2, 1fr);
 	grid-template-rows: repeat(2, 2em);
 	
 	background: rgb(20, 140, 200);
@@ -39,6 +39,10 @@ select {
 
 .add-line {
 	grid-row: 2 / 3;
+}
+
+.period-input {
+	grid-column: 2 / -1;
 }
 
 .bpm-controls {
@@ -122,6 +126,24 @@ canvas {
 
 .bg {
 	z-index: -3;
+}
+
+/* Number input styling
+*/
+input[type='number'] {
+    -moz-appearance:textfield;
+	font-size: 20px; 
+	padding: 4px; 
+	width: 5ch;
+	text-align: center;
+	border-radius: 10px;
+	background: #62ADF1;
+}
+
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+	margin: 0;
 }
 
 /* Button styling

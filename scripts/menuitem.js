@@ -26,7 +26,7 @@ function MenuItem(parentElement) {
 	bpiInput.className = 'bpi-range';
 	bpiInput.type = 'range';
 	bpiInput.min = '1.0';
-	bpiInput.max = '100.0';
+	bpiInput.max = '30.0';
 	bpiInput.step = '1';
 	bpiInput.value = '1';	
 	
