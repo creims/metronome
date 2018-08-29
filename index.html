@@ -14,9 +14,12 @@
 				
 				<div class="period-text">Period Length:
 					<span id="period-display"></span>
+					MS
 				</div>
 				
-				<input class="period-input" id="period-input" type="range" min="1.0" max="120.0" step="1" value="10">
+				<input class="set-period" id="set-period" type="number" step="1" min="1" max="10000" value="1000"/>
+				
+				<input class="period-input" id="period-input" type="range" min="500" max="10000" step="10" value="1000">
 			</div>
 			<div class="bpm-controls">
 				<div class="bpm-text">BPM:

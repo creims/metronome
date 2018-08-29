@@ -9,6 +9,7 @@ const bpmToggleBtn = document.getElementById('toggle-bpm');
 const addLineBtn = document.getElementById('add-line');
 const lineDiv = document.getElementById('lines');
 const periodInput = document.getElementById('period-input');
+const periodSet = document.getElementById('set-period');
 const periodDisplay = document.getElementById('period-display');
 const bpmInput = document.getElementById('bpm-input');
 const bpmDisplay = document.getElementById('bpm-display');
@@ -22,13 +23,16 @@ const canvasBPMAnim = document.getElementById('bpm-anim');
 const scheduleAheadTime = 0.1;
 const leadTime = 0.15; // Time before playing notes after starting metronome
 const colors = ['red', 'blue', 'green', 'yellow', 'orange', 'violet'];
+const maxPeriod = 10000; // 10 seconds
+const minPeriod = 500; // 0.5 second
+const defaultPeriod = 1000;
 
 // Animation timing
 const leadupFrac = 0.25;
 const animMult = 1 / leadupFrac;
 
 // Globals
-let period; // Length of our repetition
+let period = defaultPeriod / 1000; // Length of our rhythm in seconds
 let periodStart; // The time the last period started, used to synchronize
 let intervalPlaying = false;
 let bpmPlaying = false;
@@ -208,23 +212,44 @@ function animate() {
 	requestAnimationFrame(animate);
 }
 
+// Adjust the intervalic metronome's period length
+function updatePeriod(newPeriod) {
+	period = newPeriod / 1000;
+	periodDisplay.innerText = formatInt(newPeriod);
+	
+	periodInput.value = newPeriod;
+	periodSet.value = newPeriod;
+	
+	for(let l of lines) {
+		l.delay = period / l.bpi;
+	}
+	
+	resync(...lines);
+}
+
+// Adds commas to an integer for readability
+function formatInt(num) {
+	return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
 function init() {
 	window.AudioContext = window.AudioContext || window.webkitAudioContext;
 	audioContext = new AudioContext();
 	
-	bpmLine = new Line();
-	
 	// Load our sounds and set the BPM metronome's sound when done
+	bpmLine = new Line();
 	soundMgr.init(audioContext, () => {
 		bpmLine.setSound('Percussion', 0);
 	});
 	
+	// Set up visualizations
 	intervalicVisualizer = new Visualizer(canvasIntervalic, canvasIntervalicAnim);
 	intervalicVisualizer.setAnimation('radar');
 	
 	bpmVisualizer = new Visualizer(canvasBPM, canvasBPMAnim);
 	bpmVisualizer.setAnimation('pulse');
 	
+	// Event handlers
 	intervalToggleBtn.onclick = function() {
 		if(intervalPlaying) {
 			intervalToggleBtn.textContent = 'Start';
@@ -258,13 +283,25 @@ function init() {
 	addLineBtn.onclick = addLine;
 	
 	periodInput.oninput = e => {
-		period = periodInput.value;
-		periodDisplay.innerText = period;
-		for(let l of lines) {
-			l.delay = period / l.bpi;
+		updatePeriod(periodInput.value);
+		periodSet.value = periodInput.value;
+	};
+	
+	periodSet.onchange = e => {
+		let ms = Number.parseInt(periodSet.value);
+		if(isNaN(ms)) { // If invalid, revert to period length
+			periodSet.value = periodInput.value;
+			return;
 		}
 		
-		resync(...lines);
+		if(ms > maxPeriod) {
+			ms = maxPeriod;
+		} else if (ms < minPeriod) {
+			ms = minPeriod;
+		}
+		
+		updatePeriod(ms);
+		periodSet.blur(); // Unfocus the input 
 	};
 	
 	bpmInput.oninput = e => {
@@ -275,7 +312,7 @@ function init() {
 	};
 	
 	bpmInput.oninput();
-	periodInput.oninput();
+	updatePeriod(defaultPeriod); // Initialize period displays to default
 	
 	timer = new Worker('scripts/worker.js');
 
