@@ -8,6 +8,7 @@ const intervalToggleBtn = document.getElementById('toggle-intervalic');
 const bpmToggleBtn = document.getElementById('toggle-bpm');
 const addLineBtn = document.getElementById('add-line');
 const lineDiv = document.getElementById('lines');
+const volumeInput = document.getElementById('volume-input');
 const periodInput = document.getElementById('period-input');
 const periodSet = document.getElementById('set-period');
 const periodDisplay = document.getElementById('period-display');
@@ -26,6 +27,7 @@ const colors = ['red', 'blue', 'green', 'yellow', 'orange', 'violet'];
 const maxPeriod = 10000; // 10 seconds
 const minPeriod = 500; // 0.5 second
 const defaultPeriod = 1000;
+const defaultVolume = 100;
 
 // Animation timing
 const leadupFrac = 0.25;
@@ -33,6 +35,7 @@ const animMult = 1 / leadupFrac;
 
 // Globals
 let period = defaultPeriod / 1000; // Length of our rhythm in seconds
+let globalVolume = defaultVolume / 100;
 let periodStart; // The time the last period started, used to synchronize
 let intervalPlaying = false;
 let bpmPlaying = false;
@@ -55,7 +58,11 @@ function scheduleNote(line) {
 		node.buffer = line.soundBuffer;
 	}
 	
-	node.connect(audioContext.destination);
+	let gainNode = audioContext.createGain();
+	gainNode.gain.value = globalVolume;
+	
+	node.connect(gainNode);
+	gainNode.connect(audioContext.destination);
 	
 	node.start(line.nextNoteTime);
 	node.stop(line.nextNoteTime + line.noteLength);
@@ -282,6 +289,10 @@ function init() {
 	
 	addLineBtn.onclick = addLine;
 	
+	volumeInput.oninput = e => {
+		globalVolume = parseFloat(volumeInput.value) / 100;
+	};
+	
 	periodInput.oninput = e => {
 		updatePeriod(periodInput.value);
 		periodSet.value = periodInput.value;
@@ -311,6 +322,7 @@ function init() {
 		resync(bpmLine);
 	};
 	
+	volumeInput.oninput();
 	bpmInput.oninput();
 	updatePeriod(defaultPeriod); // Initialize period displays to default
 	
