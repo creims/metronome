@@ -37,6 +37,18 @@ select {
 	border-radius: 0 0 0 12px;
 }
 
+.volume-div {
+	display: grid;
+	grid-template-columns: min-content 1fr;
+	grid-gap: 5px;
+	justify-self: stretch;
+}
+
+#volume-icon {
+	position: relative;
+	top: 2px;
+}
+
 .add-line {
 	grid-row: 2 / 3;
 }
